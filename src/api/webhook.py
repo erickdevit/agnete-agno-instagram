@@ -11,12 +11,28 @@ from pydantic import ValidationError
 from src.config import INSTAGRAM_VERIFY_TOKEN
 from src.agent import get_agent
 from src.api.instagram import send_message
+from src.api.transcription import transcribe_audio_from_url
 from src.models import WebhookMessage
 from src.interaction_blocker import get_blocker
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 router = APIRouter()
+
+
+def _extract_audio_url(attachments) -> str:
+    if not attachments:
+        return ""
+
+    for attachment in attachments:
+        if not isinstance(attachment, dict):
+            continue
+        attachment_type = attachment.get("type", "")
+        payload = attachment.get("payload", {}) or {}
+        url = payload.get("url", "")
+        if attachment_type in {"audio", "file"} and url:
+            return url
+    return ""
 
 
 # --------------------------------------------------------------------------- #
@@ -72,6 +88,8 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
             recipient_id: str = messaging.get("recipient", {}).get("id", "")
             message = messaging.get("message", {})
             text: str = message.get("text", "")
+            attachments = message.get("attachments", [])
+            audio_url = _extract_audio_url(attachments)
             is_echo_message = message.get("is_echo", False)
             is_outgoing_message = bool(entry_id and sender_id == entry_id)
 
@@ -99,8 +117,23 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
             if sender_id and text:
                 logger.info("[RECV] from=%s text=%s", sender_id[-6:], text[:80])
                 background_tasks.add_task(_handle_message, sender_id, text)
+            elif sender_id and audio_url:
+                logger.info("[RECV] from=%s audio_attachment=1", sender_id[-6:])
+                background_tasks.add_task(_handle_audio_message, sender_id, audio_url)
 
     return {"status": "received"}
+
+
+async def _handle_audio_message(sender_id: str, audio_url: str) -> None:
+    short_id = sender_id[-6:]
+    transcription = await transcribe_audio_from_url(audio_url, sender_id)
+    if not transcription:
+        logger.warning("[%s] Could not transcribe audio attachment", short_id)
+        await send_message(sender_id, "Recebi seu audio, mas nao consegui transcrever agora. Pode enviar em texto?")
+        return
+
+    logger.info("[%s] Audio transcribed successfully (%d chars)", short_id, len(transcription))
+    await _handle_message(sender_id, transcription)
 
 
 async def _handle_message(sender_id: str, text: str) -> None:

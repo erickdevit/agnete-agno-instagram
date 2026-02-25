@@ -43,6 +43,7 @@ Edite o `.env` e preencha:
 | `INSTAGRAM_ACCESS_TOKEN` | Token de acesso da página Instagram |
 | `NOCODB_API_TOKEN` | Token da API do NocoDB (opcional) |
 | `NOCODB_TABLE_URL` | URL da tabela de leads no NocoDB (opcional) |
+| `AUDIO_TRANSCRIPTION_MODEL` | Modelo OpenAI para transcrição de áudio (padrão: `gpt-4o-mini-transcribe`) |
 
 ### 2. Suba com Docker Compose
 

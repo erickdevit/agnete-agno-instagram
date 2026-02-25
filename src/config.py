@@ -36,6 +36,7 @@ INSTAGRAM_API_VERSION = os.getenv("INSTAGRAM_API_VERSION", "v25.0")
 # Agent configs
 AGENT_MODEL = os.getenv("AGENT_MODEL", "gpt-4o-mini")
 AGENT_NAME = os.getenv("AGENT_NAME", "Assistente_Instagram")
+AUDIO_TRANSCRIPTION_MODEL = os.getenv("AUDIO_TRANSCRIPTION_MODEL", "gpt-4o-mini-transcribe")
 
 # Infra
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
@@ -46,4 +47,3 @@ try:
 except RuntimeError as e:
     logger.error("Configuration error: %s", e)
     raise
-
