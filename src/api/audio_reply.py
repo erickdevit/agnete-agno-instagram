@@ -12,15 +12,18 @@ from typing import Optional
 
 from openai import OpenAI
 
-from src.config import AUDIO_REPLY_MODEL, AUDIO_REPLY_VOICE, OPENAI_API_KEY, PUBLIC_BASE_URL
+from src.config import (
+    AUDIO_REPLY_MODEL,
+    AUDIO_REPLY_VOICE,
+    MAX_AUDIO_REPLY_CHARS,
+    OPENAI_API_KEY,
+    PUBLIC_BASE_URL,
+)
 
 logger = logging.getLogger(__name__)
 
 AUDIO_REPLY_DIR = Path("/tmp/vsimple_audio_replies")
 AUDIO_REPLY_TTL_SECONDS = 900
-MAX_AUDIO_REPLY_CHARS = 85  # approx <=5s in pt-BR speech
-
-
 def _cleanup_expired_files() -> None:
     now = time.time()
     AUDIO_REPLY_DIR.mkdir(parents=True, exist_ok=True)

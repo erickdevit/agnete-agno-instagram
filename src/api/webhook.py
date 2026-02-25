@@ -9,7 +9,7 @@ import logging
 from fastapi import APIRouter, HTTPException, Query, Request, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
-from src.config import ENABLE_INSTAGRAM_AUDIO_REPLY, INSTAGRAM_VERIFY_TOKEN
+from src.config import ENABLE_INSTAGRAM_AUDIO_REPLY, INSTAGRAM_VERIFY_TOKEN, MAX_AGENT_INPUT_CHARS
 from src.agent import get_agent
 from src.api.instagram import send_audio_message, send_message
 from src.api.transcription import transcribe_audio_from_url
@@ -205,10 +205,19 @@ async def _handle_message(sender_id: str, text: str) -> None:
 async def _generate_agent_reply(sender_id: str, text: str) -> str:
     short_id = sender_id[-6:]
     try:
+        bounded_text = text.strip()
+        if len(bounded_text) > MAX_AGENT_INPUT_CHARS:
+            bounded_text = bounded_text[:MAX_AGENT_INPUT_CHARS]
+            logger.info(
+                "[%s] Agent input truncated to %d chars for cost control",
+                short_id,
+                MAX_AGENT_INPUT_CHARS,
+            )
+
         agent = get_agent(session_id=sender_id)
 
         def _run_agent():
-            return agent.run(text)
+            return agent.run(bounded_text)
 
         response = await asyncio.to_thread(_run_agent)
 

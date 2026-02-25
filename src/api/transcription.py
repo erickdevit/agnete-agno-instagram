@@ -15,12 +15,14 @@ from openai import BadRequestError, OpenAI
 from src.config import (
     AUDIO_TRANSCRIPTION_MODEL,
     INSTAGRAM_ACCESS_TOKEN,
+    MAX_TRANSCRIPTION_AUDIO_MB,
+    MAX_TRANSCRIPTION_AUDIO_SECONDS,
     OPENAI_API_KEY,
 )
 
 logger = logging.getLogger(__name__)
 
-MAX_AUDIO_BYTES = 25 * 1024 * 1024  # 25MB
+MAX_AUDIO_BYTES = MAX_TRANSCRIPTION_AUDIO_MB * 1024 * 1024
 
 
 def _guess_suffix(content_type: str) -> str:
@@ -96,6 +98,38 @@ def _convert_audio_to_wav(audio_bytes: bytes, suffix: str) -> bytes:
                 pass
 
 
+def _get_audio_duration_seconds(audio_bytes: bytes, suffix: str) -> Optional[float]:
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(audio_bytes)
+        source_path = tmp.name
+    try:
+        proc = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                source_path,
+            ],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        raw = (proc.stdout or "").strip()
+        return float(raw) if raw else None
+    except Exception:
+        return None
+    finally:
+        try:
+            os.remove(source_path)
+        except OSError:
+            pass
+
+
 async def transcribe_audio_from_url(audio_url: str, sender_id: str) -> Optional[str]:
     """
     Download an Instagram audio attachment URL and transcribe it with OpenAI.
@@ -138,6 +172,15 @@ async def transcribe_audio_from_url(audio_url: str, sender_id: str) -> Optional[
 
     transcribe_bytes = wav_bytes if wav_bytes else audio_bytes
     transcribe_suffix = ".wav" if wav_bytes else suffix
+    duration_seconds = await asyncio.to_thread(_get_audio_duration_seconds, transcribe_bytes, transcribe_suffix)
+    if duration_seconds and duration_seconds > MAX_TRANSCRIPTION_AUDIO_SECONDS:
+        logger.warning(
+            "[%s] Audio too long for transcription (%.1fs > %ss)",
+            short_id,
+            duration_seconds,
+            MAX_TRANSCRIPTION_AUDIO_SECONDS,
+        )
+        return None
 
     try:
         transcription = await asyncio.to_thread(
