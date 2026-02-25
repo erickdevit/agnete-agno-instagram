@@ -145,10 +145,12 @@ async def _handle_audio_message(sender_id: str, audio_url: str) -> None:
 
     logger.info("[%s] Audio transcribed successfully (%d chars)", short_id, len(transcription))
     if await is_out_of_scope(transcription):
-        logger.info("[%s] Out-of-scope audio detected, replying with short audio", short_id)
-        out_of_scope_text = (
-            "Posso ajudar com motos Shineray, modelos, precos, pagamento, simulacao e localizacao da loja."
-        )
+        logger.info("[%s] Out-of-scope audio detected, generating agent reply in audio mode", short_id)
+        out_of_scope_text = await _generate_agent_reply(sender_id, transcription)
+        if not out_of_scope_text:
+            out_of_scope_text = (
+                "Entendi o que voce disse. Posso te ajudar com motos Shineray, pagamento e simulacao."
+            )
         if ENABLE_INSTAGRAM_AUDIO_REPLY:
             reply_audio_url = await create_audio_reply_url(out_of_scope_text)
             if reply_audio_url:
@@ -184,16 +186,29 @@ async def _handle_message(sender_id: str, text: str) -> None:
     
     # Validate incoming message format
     try:
-        validated_msg = WebhookMessage(sender_id=sender_id, text=text)
+        WebhookMessage(sender_id=sender_id, text=text)
     except ValidationError as e:
         logger.error("[%s] Invalid message format: %s", short_id, e)
         return
-    
+
+    reply_text = await _generate_agent_reply(sender_id, text)
+
+    if reply_text:
+        logger.info("[SEND] to=%s text=%s", short_id, reply_text[:80])
+        chunks = [reply_text[i:i+1000] for i in range(0, len(reply_text), 1000)]
+        for chunk in chunks:
+            await send_message(sender_id, chunk)
+    else:
+        logger.warning("[%s] Empty response from agent.", short_id)
+
+
+async def _generate_agent_reply(sender_id: str, text: str) -> str:
+    short_id = sender_id[-6:]
     try:
         agent = get_agent(session_id=sender_id)
 
         def _run_agent():
-            return agent.run(validated_msg.text)
+            return agent.run(text)
 
         response = await asyncio.to_thread(_run_agent)
 
@@ -203,14 +218,7 @@ async def _handle_message(sender_id: str, text: str) -> None:
                 reply_text = response.content
             elif isinstance(response, str):
                 reply_text = response
-
-        if reply_text:
-            logger.info("[SEND] to=%s text=%s", short_id, reply_text[:80])
-            chunks = [reply_text[i:i+1000] for i in range(0, len(reply_text), 1000)]
-            for chunk in chunks:
-                await send_message(sender_id, chunk)
-        else:
-            logger.warning("[%s] Empty response from agent.", short_id)
+        return reply_text or ""
 
     except Exception as exc:
         logger.error("[%s] Error handling message: %s", short_id, exc, exc_info=True)
@@ -219,3 +227,4 @@ async def _handle_message(sender_id: str, text: str) -> None:
             await send_message(sender_id, "Desculpe, encontrei um erro ao processar sua mensagem. Tente novamente mais tarde.")
         except Exception as notify_exc:
             logger.error("[%s] Failed to send error message to user: %s", short_id, notify_exc)
+        return ""
