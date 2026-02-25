@@ -1,0 +1,10 @@
+agno
+python-dotenv
+pydantic
+requests
+openai
+sqlalchemy
+redis
+fastapi
+uvicorn[standard]
+httpx
