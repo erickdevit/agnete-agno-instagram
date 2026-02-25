@@ -47,6 +47,10 @@ Edite o `.env` e preencha:
 | `AUDIO_TRANSCRIPTION_MODEL` | Modelo OpenAI para transcrição de áudio (padrão: `gpt-4o-mini-transcribe`) |
 | `AUDIO_REPLY_MODEL` | Modelo OpenAI para geração de áudio (padrão: `gpt-4o-mini-tts`) |
 | `AUDIO_REPLY_VOICE` | Voz TTS (padrão: `alloy`) |
+| `MAX_TRANSCRIPTION_AUDIO_MB` | Limite de tamanho do áudio recebido para transcrição (padrão: `10`) |
+| `MAX_TRANSCRIPTION_AUDIO_SECONDS` | Limite de duração do áudio recebido em segundos (padrão: `45`) |
+| `MAX_AGENT_INPUT_CHARS` | Limite de caracteres enviados ao agente por mensagem (padrão: `700`) |
+| `MAX_AUDIO_REPLY_CHARS` | Limite de caracteres convertidos em áudio de resposta (padrão: `85`) |
 
 ### 2. Suba com Docker Compose
 
