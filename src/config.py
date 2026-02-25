@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 # Validate required environment variables
 def _validate_env_vars():
     """Validate that required environment variables are set."""
-    required_vars = ["OPENAI_API_KEY", "NOCODB_API_TOKEN"]
+    required_vars = ["OPENAI_API_KEY"]
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     
     if missing_vars:
@@ -31,7 +31,6 @@ NOCODB_TABLE_URL = os.getenv("NOCODB_TABLE_URL", "")
 # Instagram / Meta Graph API
 INSTAGRAM_VERIFY_TOKEN = (os.getenv("INSTAGRAM_VERIFY_TOKEN") or "").strip()
 INSTAGRAM_ACCESS_TOKEN = (os.getenv("INSTAGRAM_ACCESS_TOKEN") or "").strip()
-INSTAGRAM_PAGE_ID = (os.getenv("INSTAGRAM_PAGE_ID") or "").strip()
 INSTAGRAM_API_VERSION = os.getenv("INSTAGRAM_API_VERSION", "v25.0")
 
 # Agent configs
