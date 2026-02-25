@@ -7,11 +7,14 @@ POST /webhook  –  Receive Instagram messaging events
 import asyncio
 import logging
 from fastapi import APIRouter, HTTPException, Query, Request, BackgroundTasks
+from fastapi.responses import FileResponse
 from pydantic import ValidationError
-from src.config import INSTAGRAM_VERIFY_TOKEN
+from src.config import ENABLE_INSTAGRAM_AUDIO_REPLY, INSTAGRAM_VERIFY_TOKEN
 from src.agent import get_agent
-from src.api.instagram import send_message
+from src.api.instagram import send_audio_message, send_message
 from src.api.transcription import transcribe_audio_from_url
+from src.api.scope_classifier import is_out_of_scope
+from src.api.audio_reply import create_audio_reply_url, resolve_audio_file
 from src.models import WebhookMessage
 from src.interaction_blocker import get_blocker
 
@@ -55,6 +58,14 @@ async def verify_webhook(
 
     logger.warning("Webhook verification failed: invalid token or mode")
     raise HTTPException(status_code=403, detail="Verification token mismatch")
+
+
+@router.get("/media/audio/{file_name}")
+async def get_audio_file(file_name: str):
+    file_path = resolve_audio_file(file_name)
+    if not file_path:
+        raise HTTPException(status_code=404, detail="Audio file not found")
+    return FileResponse(path=file_path, media_type="audio/wav")
 
 
 # --------------------------------------------------------------------------- #
@@ -133,6 +144,26 @@ async def _handle_audio_message(sender_id: str, audio_url: str) -> None:
         return
 
     logger.info("[%s] Audio transcribed successfully (%d chars)", short_id, len(transcription))
+    if await is_out_of_scope(transcription):
+        logger.info("[%s] Out-of-scope audio detected, replying with short audio", short_id)
+        out_of_scope_text = (
+            "Posso ajudar com motos Shineray, modelos, precos, pagamento, simulacao e localizacao da loja."
+        )
+        if ENABLE_INSTAGRAM_AUDIO_REPLY:
+            reply_audio_url = await create_audio_reply_url(out_of_scope_text)
+            if reply_audio_url:
+                try:
+                    await send_audio_message(sender_id, reply_audio_url)
+                    return
+                except Exception as exc:
+                    logger.warning("[%s] Audio reply failed, falling back to text: %s", short_id, exc)
+            else:
+                logger.warning("[%s] Could not build audio reply URL, falling back to text", short_id)
+        else:
+            logger.info("[%s] Instagram audio reply disabled; sending text fallback", short_id)
+        await send_message(sender_id, out_of_scope_text)
+        return
+
     await _handle_message(sender_id, transcription)
 
 
