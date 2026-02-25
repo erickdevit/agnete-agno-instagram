@@ -41,8 +41,12 @@ Edite o `.env` e preencha:
 | `OPENAI_API_KEY` | Chave da OpenAI |
 | `INSTAGRAM_VERIFY_TOKEN` | Token que você define ao registrar o webhook no Meta |
 | `INSTAGRAM_ACCESS_TOKEN` | Token de acesso da página Instagram |
+| `PUBLIC_BASE_URL` | URL pública da API (usada para servir áudio de resposta) |
 | `NOCODB_API_TOKEN` | Token da API do NocoDB (opcional) |
 | `NOCODB_TABLE_URL` | URL da tabela de leads no NocoDB (opcional) |
+| `AUDIO_TRANSCRIPTION_MODEL` | Modelo OpenAI para transcrição de áudio (padrão: `gpt-4o-mini-transcribe`) |
+| `AUDIO_REPLY_MODEL` | Modelo OpenAI para geração de áudio (padrão: `gpt-4o-mini-tts`) |
+| `AUDIO_REPLY_VOICE` | Voz TTS (padrão: `alloy`) |
 
 ### 2. Suba com Docker Compose
 
