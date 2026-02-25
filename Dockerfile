@@ -4,7 +4,8 @@ WORKDIR /app
 
 # Install dependencies first for better caching
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir --retries 10 --timeout 120 -r requirements.txt
 
 # Copy source code
 COPY src /app/src
