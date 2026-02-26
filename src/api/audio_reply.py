@@ -4,6 +4,7 @@ Generate short audio replies and expose temporary files for Instagram attachment
 import asyncio
 import logging
 import subprocess
+import tempfile
 import time
 import uuid
 from pathlib import Path
@@ -21,7 +22,7 @@ from src.config import (
 
 logger = logging.getLogger(__name__)
 
-AUDIO_REPLY_DIR = Path("/tmp/vsimple_audio_replies")
+AUDIO_REPLY_DIR = Path(tempfile.mkdtemp(prefix="vsimple_audio_replies_"))
 AUDIO_REPLY_TTL_SECONDS = 900
 
 
