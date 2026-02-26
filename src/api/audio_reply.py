@@ -9,13 +9,11 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from openai import OpenAI
-
+from src.api.openai_client import client
 from src.config import (
     AUDIO_REPLY_MODEL,
     AUDIO_REPLY_VOICE,
     MAX_AUDIO_REPLY_CHARS,
-    OPENAI_API_KEY,
     PUBLIC_BASE_URL,
 )
 
@@ -68,7 +66,6 @@ def _convert_to_wav(input_path: Path, output_path: Path) -> None:
 
 
 def _synthesize_to_wav_file(text: str, output_path: Path) -> None:
-    client = OpenAI(api_key=OPENAI_API_KEY)
     temp_mp3 = output_path.with_suffix(".mp3")
     try:
         with client.audio.speech.with_streaming_response.create(
