@@ -10,15 +10,15 @@ import tempfile
 from typing import Optional
 
 import httpx
-from openai import BadRequestError, OpenAI
+from openai import BadRequestError
 
 from src.config import (
     AUDIO_TRANSCRIPTION_MODEL,
     INSTAGRAM_ACCESS_TOKEN,
     MAX_TRANSCRIPTION_AUDIO_MB,
     MAX_TRANSCRIPTION_AUDIO_SECONDS,
-    OPENAI_API_KEY,
 )
+from src.openai_client import openai_client
 
 logger = logging.getLogger(__name__)
 
@@ -44,12 +44,11 @@ def _extract_transcription_text(result) -> str:
 
 
 def _transcribe_audio_bytes(audio_bytes: bytes, suffix: str, model: str = AUDIO_TRANSCRIPTION_MODEL) -> str:
-    client = OpenAI(api_key=OPENAI_API_KEY)
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as tmp:
         tmp.write(audio_bytes)
         tmp.flush()
         with open(tmp.name, "rb") as audio_file:
-            result = client.audio.transcriptions.create(
+            result = openai_client.audio.transcriptions.create(
                 model=model,
                 file=audio_file,
             )

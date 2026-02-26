@@ -4,9 +4,7 @@ Classifier for deciding whether a user request is outside assistant business sco
 import asyncio
 import logging
 
-from openai import OpenAI
-
-from src.config import OPENAI_API_KEY
+from src.openai_client import openai_client
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +18,7 @@ SCOPE_DESCRIPTION = (
 
 
 def _classify_sync(text: str) -> bool:
-    client = OpenAI(api_key=OPENAI_API_KEY)
-    completion = client.chat.completions.create(
+    completion = openai_client.chat.completions.create(
         model=CLASSIFIER_MODEL,
         temperature=0,
         max_tokens=5,
