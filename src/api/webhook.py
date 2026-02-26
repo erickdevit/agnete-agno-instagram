@@ -6,6 +6,7 @@ POST /webhook  –  Receive Instagram messaging events
 """
 import asyncio
 import logging
+import time
 from fastapi import APIRouter, HTTPException, Query, Request, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
@@ -17,6 +18,7 @@ from src.api.scope_classifier import is_out_of_scope
 from src.api.audio_reply import create_audio_reply_url, resolve_audio_file
 from src.models import WebhookMessage
 from src.interaction_blocker import get_blocker
+from src.api.message_buffer import MessageBuffer
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -146,7 +148,7 @@ async def _handle_audio_message(sender_id: str, audio_url: str) -> None:
     logger.info("[%s] Audio transcribed successfully (%d chars)", short_id, len(transcription))
     if await is_out_of_scope(transcription):
         logger.info("[%s] Out-of-scope audio detected, generating agent reply in audio mode", short_id)
-        out_of_scope_text = await _generate_agent_reply(sender_id, transcription)
+        out_of_scope_text = await _generate_agent_reply_logic(sender_id, transcription)
         if not out_of_scope_text:
             out_of_scope_text = (
                 "Entendi o que voce disse. Posso te ajudar com motos Shineray, pagamento e simulacao."
@@ -171,17 +173,84 @@ async def _handle_audio_message(sender_id: str, audio_url: str) -> None:
 
 async def _handle_message(sender_id: str, text: str) -> None:
     """
-    Process a single message through the Agno agent and reply to the user.
-    Respects user interaction blocks - waits for user to finish interacting.
+    Buffer the incoming message and schedule processing if needed.
     """
     short_id = sender_id[-6:]
-    blocker = get_blocker()
     
-    # Check if agent is blocked (user is actively interacting)
+    blocker = get_blocker()
     if blocker.is_blocked(sender_id):
         remaining = blocker.get_remaining_block_time(sender_id)
         logger.info("[%s] Agent blocked - user still interacting (%.0f sec remaining)", 
                    short_id, remaining or 0)
+        return
+
+    buffer = MessageBuffer()
+    buffer.add_message(sender_id, text)
+    buffer.touch_timer(sender_id)
+
+    logger.info("[%s] Message buffered. Attempting to acquire processing lock...", short_id)
+    if buffer.acquire_processing_lock(sender_id):
+        logger.info("[%s] Lock acquired. Starting buffer processor.", short_id)
+        await _process_buffered_messages(sender_id, buffer)
+    else:
+        logger.info("[%s] Processor already running. Message will be picked up.", short_id)
+
+
+async def _process_buffered_messages(sender_id: str, buffer: MessageBuffer):
+    short_id = sender_id[-6:]
+    try:
+        while True:
+            last_time = buffer.get_last_message_time(sender_id)
+            now = time.time()
+            elapsed = now - last_time
+            remaining = 5.0 - elapsed
+
+            if remaining > 0:
+                logger.debug("[%s] Waiting for buffer silence (%.2fs remaining)", short_id, remaining)
+                await asyncio.sleep(remaining)
+                continue
+            else:
+                break
+
+        messages = buffer.get_and_clear_messages(sender_id)
+        if not messages:
+            logger.warning("[%s] Buffer empty after wait loop?", short_id)
+            buffer.release_processing_lock(sender_id)
+            return
+
+        combined_text = "\n".join(messages)
+        logger.info("[%s] Processing batch of %d messages", short_id, len(messages))
+
+        # Release lock before processing to prevent deadlocks,
+        # but risk concurrent processing if new message comes immediately.
+        # Given we want to process the batch, let's keep it locked?
+        # No, if we keep it locked, a new message will just be buffered but no processor will start.
+        # So when this processor finishes, it must check buffer again?
+        # Or we rely on the fact that if a new message came, it updated the timer, so we looped again.
+        # If a message comes AFTER we break the loop (elapsed >= 5), it will be added to buffer.
+        # If we release lock NOW, and new message comes, it starts a NEW processor.
+        # That new processor will pick up the new message (and potentially empty buffer if we didn't clear it).
+        # We ALREADY cleared the buffer.
+        # So the new processor will handle the new message.
+        # This processor handles the old batch.
+        # This is correct.
+        buffer.release_processing_lock(sender_id)
+
+        await _execute_agent_logic(sender_id, combined_text)
+
+    except Exception as e:
+        logger.error("[%s] Error in buffer processor: %s", short_id, e)
+        buffer.release_processing_lock(sender_id)
+
+
+async def _execute_agent_logic(sender_id: str, text: str) -> None:
+    """
+    Process the (combined) message through the Agno agent and reply to the user.
+    """
+    short_id = sender_id[-6:]
+
+    blocker = get_blocker()
+    if blocker.is_blocked(sender_id):
         return
     
     # Validate incoming message format
@@ -191,7 +260,7 @@ async def _handle_message(sender_id: str, text: str) -> None:
         logger.error("[%s] Invalid message format: %s", short_id, e)
         return
 
-    reply_text = await _generate_agent_reply(sender_id, text)
+    reply_text = await _generate_agent_reply_logic(sender_id, text)
 
     if reply_text:
         logger.info("[SEND] to=%s text=%s", short_id, reply_text[:80])
@@ -202,7 +271,7 @@ async def _handle_message(sender_id: str, text: str) -> None:
         logger.warning("[%s] Empty response from agent.", short_id)
 
 
-async def _generate_agent_reply(sender_id: str, text: str) -> str:
+async def _generate_agent_reply_logic(sender_id: str, text: str) -> str:
     short_id = sender_id[-6:]
     try:
         bounded_text = text.strip()
