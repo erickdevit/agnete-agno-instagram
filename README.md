@@ -21,36 +21,47 @@ vsimple/
 │       └── webhook.py    # Recepção de mensagens do Instagram
 ├── Dockerfile
 ├── docker-compose.yml
-└── .env.example
+├── requirements.txt
+├── .dockerignore
+└── example.env
 ```
 
 ---
 
-## Como usar
+## Deploy no Easypanel
+
+Este projeto está pronto para deploy no Easypanel (ou qualquer infra baseada em Docker).
+
+### 1. Crie o Serviço
+No Easypanel, crie um **App Service** e aponte para este repositório.
+
+### 2. Configure as Variáveis de Ambiente
+Copie o conteúdo de `example.env` e cole na aba **Environment** do serviço no Easypanel.
+Preencha os valores obrigatórios (`OPENAI_API_KEY`, tokens do Instagram, etc.).
+
+A variável `PORT` será injetada automaticamente pelo Easypanel (padrão 80), mas o container está configurado para aceitar qualquer porta via `$PORT`. Se necessário, defina `PORT=8000` manualmente ou mapeie a porta externa 80 para a interna 8000.
+
+### 3. Deploy
+Clique em **Deploy**. O build usará o `Dockerfile` otimizado (multi-stage).
+
+### 4. Healthcheck
+Configure o healthcheck no Easypanel (se não detectar automático):
+- Path: `/health`
+- Port: `8000` (ou a que você definiu em `$PORT`)
+
+### 5. Logs
+Os logs estruturados são enviados para o stdout e podem ser vistos na aba **Logs** do serviço.
+
+---
+
+## Rodando Localmente com Docker
 
 ### 1. Configure o `.env`
 
 ```bash
-cp .env.example .env
+cp example.env .env
+# Edite .env com suas chaves
 ```
-
-Edite o `.env` e preencha:
-
-| Variável | Descrição |
-|---|---|
-| `OPENAI_API_KEY` | Chave da OpenAI |
-| `INSTAGRAM_VERIFY_TOKEN` | Token que você define ao registrar o webhook no Meta |
-| `INSTAGRAM_ACCESS_TOKEN` | Token de acesso da página Instagram |
-| `PUBLIC_BASE_URL` | URL pública da API (usada para servir áudio de resposta) |
-| `NOCODB_API_TOKEN` | Token da API do NocoDB (opcional) |
-| `NOCODB_TABLE_URL` | URL da tabela de leads no NocoDB (opcional) |
-| `AUDIO_TRANSCRIPTION_MODEL` | Modelo OpenAI para transcrição de áudio (padrão: `gpt-4o-mini-transcribe`) |
-| `AUDIO_REPLY_MODEL` | Modelo OpenAI para geração de áudio (padrão: `gpt-4o-mini-tts`) |
-| `AUDIO_REPLY_VOICE` | Voz TTS (padrão: `alloy`) |
-| `MAX_TRANSCRIPTION_AUDIO_MB` | Limite de tamanho do áudio recebido para transcrição (padrão: `10`) |
-| `MAX_TRANSCRIPTION_AUDIO_SECONDS` | Limite de duração do áudio recebido em segundos (padrão: `45`) |
-| `MAX_AGENT_INPUT_CHARS` | Limite de caracteres enviados ao agente por mensagem (padrão: `700`) |
-| `MAX_AUDIO_REPLY_CHARS` | Limite de caracteres convertidos em áudio de resposta (padrão: `85`) |
 
 ### 2. Suba com Docker Compose
 
@@ -60,47 +71,28 @@ docker compose up --build -d
 
 O serviço ficará disponível em `http://localhost:8000`.
 
-### 3. Configure o webhook no Meta Developer
-
-Na plataforma [Meta for Developers](https://developers.facebook.com):
-
-1. Vá em **Webhooks** → **Instagram**
-2. Endpoint: `https://seu-dominio.com/webhook`
-3. Verify Token: o mesmo valor que você colocou em `INSTAGRAM_VERIFY_TOKEN`
-4. Assine o campo **messages**
-
-> ⚠️ O endpoint precisa ser HTTPS público. Para testes locais, use [ngrok](https://ngrok.com):
-> ```bash
-> ngrok http 8000
-> ```
-
-### 4. Verifique saúde do serviço
+### 3. Verifique saúde do serviço
 
 ```bash
 curl http://localhost:8000/health
 # {"status":"ok"}
 ```
 
-### 5. Ver logs em tempo real
-
-```bash
-docker compose logs -f agent
-```
-
 ---
 
-## Personalizando o agente
+## Configuração do Webhook (Meta)
 
-- **System prompt:** edite `src/prompts.py`
-- **Ferramentas:** edite `src/tools.py` para adicionar integrações
-- **Modelo LLM:** altere `AGENT_MODEL` no `.env` (padrão: `gpt-4o-mini`)
+1. Vá em **Webhooks** → **Instagram** no [Meta for Developers](https://developers.facebook.com).
+2. Endpoint: `https://seu-dominio.com/webhook`
+3. Verify Token: o mesmo valor de `INSTAGRAM_VERIFY_TOKEN`
+4. Assine o campo **messages**
 
 ---
 
 ## Dependências
 
-- Python 3.11+
+- Python 3.11+ (slim image)
 - [agno](https://github.com/agno-agi/agno)
-- FastAPI + Uvicorn
+- FastAPI + Gunicorn + Uvicorn
 - Redis (memória de sessão/conversação)
-- httpx, python-dotenv, pydantic, requests
+- ffmpeg (para processamento de áudio)
