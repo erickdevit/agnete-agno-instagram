@@ -7,15 +7,20 @@ compatibility_flags = ["nodejs_compat"]
 # INSTAGRAM_VERIFY_TOKEN = ""
 # INSTAGRAM_ACCESS_TOKEN = ""
 # OPENAI_API_KEY = ""
+# PUBLIC_BASE_URL = ""
 
-# [[kv_namespaces]]
-# binding = "BLOCKS_KV"
-# id = "preview_id_or_prod_id_here"
+[[kv_namespaces]]
+binding = "BLOCKS_KV"
+id = "local_dev_only"
 
-# [[durable_objects.bindings]]
-# name = "MESSAGE_BUFFER_DO"
-# class_name = "MessageBufferDO"
+[[r2_buckets]]
+binding = "AUDIO_BUCKET"
+bucket_name = "audio-reply-bucket"
 
-# [[migrations]]
-# tag = "v1"
-# new_classes = ["MessageBufferDO"]
+[[durable_objects.bindings]]
+name = "MESSAGE_BUFFER_DO"
+class_name = "MessageBufferDO"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["MessageBufferDO"]
