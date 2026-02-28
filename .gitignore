@@ -137,3 +137,4 @@ dist
 
 # ignore wrangler toml secrets if explicitly injected
 # wrangler.toml
+\n.dev.vars
