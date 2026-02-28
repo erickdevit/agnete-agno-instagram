@@ -1,0 +1,21 @@
+name = "instagram-agent"
+main = "src/index.ts"
+compatibility_date = "2024-03-20"
+compatibility_flags = ["nodejs_compat"]
+
+# [vars]
+# INSTAGRAM_VERIFY_TOKEN = ""
+# INSTAGRAM_ACCESS_TOKEN = ""
+# OPENAI_API_KEY = ""
+
+# [[kv_namespaces]]
+# binding = "BLOCKS_KV"
+# id = "preview_id_or_prod_id_here"
+
+# [[durable_objects.bindings]]
+# name = "MESSAGE_BUFFER_DO"
+# class_name = "MessageBufferDO"
+
+# [[migrations]]
+# tag = "v1"
+# new_classes = ["MessageBufferDO"]
