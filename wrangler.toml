@@ -11,7 +11,7 @@ compatibility_flags = ["nodejs_compat"]
 
 [[kv_namespaces]]
 binding = "BLOCKS_KV"
-id = "local_dev_only"
+id = "8fdd7a4e56114f699b71bcf7836476ba"
 
 [[r2_buckets]]
 binding = "AUDIO_BUCKET"
@@ -23,4 +23,4 @@ class_name = "MessageBufferDO"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["MessageBufferDO"]
+new_sqlite_classes = ["MessageBufferDO"]
