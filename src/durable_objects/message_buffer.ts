@@ -1,5 +1,5 @@
 import type { Env } from "../index";
-import { appGraph } from "../agent/graph";
+import { getAppGraph } from "../agent/graph";
 import { sendInstagramMessage } from "../services/instagram";
 import { HumanMessage } from "@langchain/core/messages";
 
@@ -58,6 +58,8 @@ export class MessageBufferDO {
             const initialState = {
                 messages: [new HumanMessage(combinedText)]
             };
+
+            const appGraph = getAppGraph(this.env.OPENAI_API_KEY);
 
             // Executa o grafo com estado zerado ou você pode persistir esse Thread via Saver
             const result = await appGraph.invoke(initialState);
